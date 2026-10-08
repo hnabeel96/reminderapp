@@ -1,7 +1,7 @@
-# Next Move
+# Orbit
 
-A personal, fully on-device Android to-do list + reminder app with a chess theme.
-No servers, no accounts. One move at a time.
+A personal, fully on-device Android to-do list + reminder app with a cosmic look.
+No servers, no accounts.
 
 ## Get the APK
 Every push to `main` builds a signed APK with GitHub Actions and publishes it under
@@ -9,10 +9,10 @@ Every push to `main` builds a signed APK with GitHub Actions and publishes it un
 allow "Install unknown apps" for your browser, and install. New builds install as updates.
 
 ## Features
-- To-do board: Your move (overdue), Today, Anytime, Upcoming, Done today
-- Priorities as pieces: Pawn +5, Rook +10, King +20 rating
-- Rating and daily streak for completed tasks
-- Quick add from the board; tap the piece to change priority
+- Tasks: Overdue, Today, Anytime, Upcoming, Done today
+- Priority as stars: Low, Medium, High
+- Orbit ring shows today's progress; daily streak
+- Quick add; tap the star to change priority
 
 ### Reminders
 - One-time, daily, weekdays, weekly, or every-N-days reminders

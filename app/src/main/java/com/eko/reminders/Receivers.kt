@@ -6,24 +6,23 @@ import android.content.Intent
 
 /** Shared complete / undo logic, used by the board checkbox and the notification button. */
 object Actions {
-    /** Marks an item done. Returns rating points earned (0 if nothing changed). */
-    fun complete(ctx: Context, id: Int): Int {
-        val r = Store.get(ctx, id) ?: return 0
+    /** Marks an item done. Returns true if something changed. */
+    fun complete(ctx: Context, id: Int): Boolean {
+        val r = Store.get(ctx, id) ?: return false
         Notifier.cancel(ctx, id)
         Scheduler.cancelRering(ctx, id)
         val now = System.currentTimeMillis()
         if (r.recurring) {
             val alreadyToday = Dates.isToday(r.doneAt)
             Store.upsert(ctx, r.copy(awaitingAck = false, doneAt = now))
-            if (alreadyToday) return 0
+            if (alreadyToday) return false
         } else {
-            if (r.done) return 0
+            if (r.done) return false
             Scheduler.cancelAll(ctx, id)
             Store.upsert(ctx, r.copy(done = true, doneAt = now, awaitingAck = false))
         }
-        Store.addRating(ctx, r.priority.points)
         Store.markToday(ctx)
-        return r.priority.points
+        return true
     }
 
     fun uncomplete(ctx: Context, id: Int) {
@@ -43,7 +42,6 @@ object Actions {
             Store.upsert(ctx, reopened)
             Scheduler.schedule(ctx, reopened)
         }
-        Store.addRating(ctx, -r.priority.points)
     }
 }
 
@@ -64,13 +62,13 @@ class AlarmReceiver : BroadcastReceiver() {
                 }
                 Store.upsert(ctx, updated)
                 if (r.recurring) Scheduler.schedule(ctx, updated)
-                Notifier.show(ctx, updated, "Your move")
+                Notifier.show(ctx, updated, "Due now")
                 if (r.nagMinutes > 0) Scheduler.scheduleRering(ctx, id, now + r.nagMinutes * 60_000L)
             }
 
             Scheduler.ACTION_RERING -> {
                 if (!r.armed || !r.awaitingAck) return
-                Notifier.show(ctx, r, "Still your move. Tap Done when finished")
+                Notifier.show(ctx, r, "Still pending. Tap Done when finished")
                 if (r.nagMinutes > 0) Scheduler.scheduleRering(ctx, id, now + r.nagMinutes * 60_000L)
             }
 

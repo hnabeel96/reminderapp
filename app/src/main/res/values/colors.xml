@@ -1,5 +1,5 @@
 <resources>
-    <color name="ic_bg">#0E0F12</color>
-    <color name="board_bg">#0E0F12</color>
-    <color name="board_bar">#17191E</color>
+    <color name="ic_bg">#070818</color>
+    <color name="space_top">#05060F</color>
+    <color name="space_bottom">#170F33</color>
 </resources>

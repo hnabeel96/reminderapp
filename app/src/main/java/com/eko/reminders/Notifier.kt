@@ -64,8 +64,8 @@ object Notifier {
         )
         val b = NotificationCompat.Builder(ctx, if (r.alarmStyle) CH_ALARM else CH_REMINDER)
             .setSmallIcon(R.drawable.ic_notif)
-            .setColor(0xFFD4A537.toInt())
-            .setContentTitle("${r.priority.glyph}  ${r.title}")
+            .setColor(0xFF7DF9FF.toInt())
+            .setContentTitle(r.title)
             .setContentText(text)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(

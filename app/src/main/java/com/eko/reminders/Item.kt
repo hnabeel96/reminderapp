@@ -17,18 +17,26 @@ enum class Repeat(val label: String) {
     EVERY_N_DAYS("Every N days"),
 }
 
-/** Priority as chess pieces. Points feed the rating. */
-enum class Piece(val glyph: String, val label: String, val points: Int) {
-    PAWN("♙", "Pawn", 5),
-    ROOK("♖", "Rook", 10),
-    KING("♔", "King", 20),
+enum class Priority(val label: String) {
+    LOW("Low"),
+    MEDIUM("Medium"),
+    HIGH("High");
+
+    companion object {
+        /** Also accepts the old chess-themed names from build 2. */
+        fun parse(s: String): Priority = when (s) {
+            "HIGH", "KING" -> HIGH
+            "MEDIUM", "ROOK" -> MEDIUM
+            else -> LOW
+        }
+    }
 }
 
 /** One entry: a to-do, optionally with a reminder time (and repeat). */
 data class Item(
     val id: Int,
     val title: String,
-    val priority: Piece = Piece.PAWN,
+    val priority: Priority = Priority.LOW,
     val hasTime: Boolean = false,
     /** Next (or current, if awaiting acknowledgement) occurrence, epoch millis. */
     val timeMillis: Long = 0L,
@@ -120,8 +128,7 @@ data class Item(
             return Item(
                 id = o.getInt("id"),
                 title = o.optString("title", ""),
-                priority = runCatching { Piece.valueOf(o.optString("priority", "PAWN")) }
-                    .getOrDefault(Piece.PAWN),
+                priority = Priority.parse(o.optString("priority", "LOW")),
                 hasTime = o.optBoolean("hasTime", true),
                 timeMillis = o.optLong("timeMillis", 0L),
                 repeat = repeat,

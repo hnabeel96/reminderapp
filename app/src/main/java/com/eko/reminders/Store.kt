@@ -5,16 +5,14 @@ import android.content.SharedPreferences
 import org.json.JSONArray
 import java.time.LocalDate
 
-data class Stats(val rating: Int, val streak: Int)
+data class Stats(val streak: Int)
 
 /** Tiny on-device store: the whole list as JSON in SharedPreferences, plus stats. */
 object Store {
     private const val PREFS = "reminders"
     private const val KEY_LIST = "list"
     private const val KEY_NEXT_ID = "nextId"
-    private const val KEY_RATING = "rating"
     private const val KEY_DAYS = "days"
-    private const val BASE_RATING = 1200
     private const val KEEP_DONE_MS = 30L * 24 * 60 * 60 * 1000
 
     fun prefs(ctx: Context): SharedPreferences =
@@ -59,17 +57,9 @@ object Store {
         return id
     }
 
-    // ---- Stats: rating (points) and streak (consecutive days with at least one move) ----
+    // ---- Streak: consecutive days with at least one completed task ----
 
-    fun stats(ctx: Context): Stats =
-        Stats(prefs(ctx).getInt(KEY_RATING, BASE_RATING), streak(ctx))
-
-    @Synchronized
-    fun addRating(ctx: Context, delta: Int) {
-        val p = prefs(ctx)
-        val next = (p.getInt(KEY_RATING, BASE_RATING) + delta).coerceAtLeast(0)
-        p.edit().putInt(KEY_RATING, next).commit()
-    }
+    fun stats(ctx: Context): Stats = Stats(streak(ctx))
 
     private fun days(ctx: Context): Set<String> =
         (prefs(ctx).getString(KEY_DAYS, "") ?: "").split(',').filter { it.isNotBlank() }.toSet()

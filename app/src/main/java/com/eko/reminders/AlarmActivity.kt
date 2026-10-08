@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -22,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
@@ -42,41 +44,61 @@ class AlarmActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         val id = intent.getIntExtra(Scheduler.EXTRA_ID, -1)
-        val title = Store.get(this, id)?.title ?: "Reminder"
+        val item = Store.get(this, id)
+        val title = item?.title ?: "Reminder"
+        val piece = item?.priority ?: Piece.PAWN
         val now = LocalTime.now().format(DateTimeFormatter.ofPattern("h:mm a"))
 
         setContent {
             AppTheme {
-                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.primaryContainer) {
-                    Column(
-                        Modifier.fillMaxSize().padding(32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                    ) {
-                        Text(now, style = MaterialTheme.typography.displayMedium)
-                        Spacer(Modifier.height(16.dp))
-                        Text(
-                            title,
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center,
-                        )
-                        Spacer(Modifier.height(48.dp))
-                        Button(
-                            onClick = {
-                                runCatching { Scheduler.doneIntent(this@AlarmActivity, id).send() }
-                                finish()
-                            },
-                            modifier = Modifier.fillMaxWidth().height(56.dp),
-                        ) { Text("Done") }
-                        Spacer(Modifier.height(12.dp))
-                        OutlinedButton(
-                            onClick = {
-                                runCatching { Scheduler.snoozeIntent(this@AlarmActivity, id).send() }
-                                finish()
-                            },
-                            modifier = Modifier.fillMaxWidth().height(56.dp),
-                        ) { Text("Snooze ${Scheduler.SNOOZE_MINUTES} min") }
+                Surface(Modifier.fillMaxSize(), color = Palette.Bg) {
+                    Column(Modifier.fillMaxSize()) {
+                        CheckerStrip(height = 16.dp, squares = 16)
+                        Column(
+                            Modifier.weight(1f).fillMaxWidth().padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                        ) {
+                            Text(piece.glyph, fontSize = 72.sp, color = pieceColor(piece))
+                            Spacer(Modifier.height(8.dp))
+                            Text(now, style = MaterialTheme.typography.displayMedium, color = Palette.Gold)
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "YOUR MOVE",
+                                style = MaterialTheme.typography.labelLarge,
+                                letterSpacing = 3.sp,
+                                color = Palette.Muted,
+                            )
+                            Spacer(Modifier.height(20.dp))
+                            Text(
+                                title,
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                color = Palette.Ivory,
+                            )
+                            Spacer(Modifier.height(48.dp))
+                            Button(
+                                onClick = {
+                                    runCatching { Scheduler.doneIntent(this@AlarmActivity, id).send() }
+                                    finish()
+                                },
+                                modifier = Modifier.fillMaxWidth().height(56.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Palette.Gold,
+                                    contentColor = Palette.Bg,
+                                ),
+                            ) { Text("Done  +${piece.points}", fontWeight = FontWeight.Bold) }
+                            Spacer(Modifier.height(12.dp))
+                            OutlinedButton(
+                                onClick = {
+                                    runCatching { Scheduler.snoozeIntent(this@AlarmActivity, id).send() }
+                                    finish()
+                                },
+                                modifier = Modifier.fillMaxWidth().height(56.dp),
+                            ) { Text("Snooze ${Scheduler.SNOOZE_MINUTES} min", color = Palette.Ivory) }
+                        }
+                        CheckerStrip(height = 16.dp, squares = 16)
                     }
                 }
             }

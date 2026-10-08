@@ -1,0 +1,8 @@
+<resources>
+    <style name="Theme.NextMove" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/board_bg</item>
+        <item name="android:statusBarColor">@color/board_bg</item>
+        <item name="android:navigationBarColor">@color/board_bar</item>
+        <item name="android:colorAccent">#D4A537</item>
+    </style>
+</resources>

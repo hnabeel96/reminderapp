@@ -54,7 +54,7 @@ object Notifier {
             ctx.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED
 
-    fun show(ctx: Context, r: Reminder, text: String) {
+    fun show(ctx: Context, r: Item, text: String) {
         if (!canPost(ctx)) return
         ensureChannels(ctx)
 
@@ -64,7 +64,8 @@ object Notifier {
         )
         val b = NotificationCompat.Builder(ctx, if (r.alarmStyle) CH_ALARM else CH_REMINDER)
             .setSmallIcon(R.drawable.ic_notif)
-            .setContentTitle(r.title)
+            .setColor(0xFFD4A537.toInt())
+            .setContentTitle("${r.priority.glyph}  ${r.title}")
             .setContentText(text)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(

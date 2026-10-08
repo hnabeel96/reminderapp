@@ -48,10 +48,10 @@ object Scheduler {
         }
     }
 
-    /** (Re)arm the main alarm for a reminder. Safe to call repeatedly. */
-    fun schedule(ctx: Context, r: Reminder) {
+    /** (Re)arm the main alarm for an item. Safe to call repeatedly. */
+    fun schedule(ctx: Context, r: Item) {
         am(ctx).cancel(fireIntent(ctx, r.id))
-        if (!r.enabled) return
+        if (!r.armed) return
         val now = System.currentTimeMillis()
         val next = r.nextAfter(now)
         when {
@@ -78,7 +78,7 @@ object Scheduler {
         val now = System.currentTimeMillis()
         Store.all(ctx).forEach { r ->
             schedule(ctx, r)
-            if (includeNag && r.enabled && r.awaitingAck) {
+            if (includeNag && r.armed && r.awaitingAck) {
                 val delay = if (r.nagMinutes > 0) r.nagMinutes * 60_000L else 5_000L
                 scheduleRering(ctx, r.id, now + delay)
             }

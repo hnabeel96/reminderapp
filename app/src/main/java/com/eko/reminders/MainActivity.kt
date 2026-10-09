@@ -31,8 +31,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -41,6 +42,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -76,6 +78,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
@@ -88,6 +91,8 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -256,14 +261,12 @@ fun App(resumeTick: Int) {
 
 // ---------------------------------------------------------------- tasks (to-do)
 
-@Composable
-private fun TasksScreen(
-    items: List<Item>,
-    stats: Stats,
-    issues: List<Fix>,
-    pad: PaddingValues,
-    onEdit: (Item) -> Unit,
-) {
+private const val DONE_SECTION = "Done today"
+
+private fun manual(it: Item): Int = if (it.order > 0) it.order else Int.MAX_VALUE
+
+/** Splits items into ordered sections. Manual (drag) order wins, then the default rule. */
+private fun buildSections(items: List<Item>): List<Pair<String, List<Item>>> {
     val now = System.currentTimeMillis()
     val today = LocalDate.now()
     val overdue = mutableListOf<Item>()
@@ -286,27 +289,125 @@ private fun TasksScreen(
             else -> upcoming += it
         }
     }
-    anytime.sortWith(compareByDescending<Item> { it.priority.ordinal }.thenBy { it.createdAt })
-    overdue.sortWith(compareByDescending<Item> { it.priority.ordinal }.thenBy { it.timeMillis })
-    todayList.sortBy { it.timeMillis }
-    upcoming.sortBy { it.timeMillis }
+    val byPriority = compareBy<Item> { manual(it) }.thenByDescending { it.priority.ordinal }
+    anytime.sortWith(byPriority.thenBy { it.createdAt })
+    overdue.sortWith(byPriority.thenBy { it.timeMillis })
+    todayList.sortWith(compareBy<Item> { manual(it) }.thenBy { it.timeMillis })
+    upcoming.sortWith(compareBy<Item> { manual(it) }.thenBy { it.timeMillis })
+    doneToday.sortByDescending { it.doneAt }
 
-    val load = overdue.size + todayList.size + doneToday.size
+    return listOf(
+        "Overdue" to overdue,
+        "Today" to todayList,
+        "Anytime" to anytime,
+        "Upcoming" to upcoming,
+        DONE_SECTION to doneToday,
+    )
+}
+
+private fun sectionAccent(title: String): Color = when (title) {
+    "Overdue" -> Cosmos.Pink
+    "Today" -> Cosmos.Cyan
+    "Anytime" -> Cosmos.Violet
+    DONE_SECTION -> Cosmos.Mint
+    else -> Cosmos.Muted
+}
+
+private fun rowKey(section: String, id: Int) = "t|$section|$id"
+
+/** Returns (section, id) for a task row key, or null for headers and other rows. */
+private fun parseRowKey(key: Any): Pair<String, Int>? {
+    val parts = (key as? String)?.split('|') ?: return null
+    if (parts.size != 3 || parts[0] != "t") return null
+    val id = parts[2].toIntOrNull() ?: return null
+    return parts[1] to id
+}
+
+@Composable
+private fun TasksScreen(
+    items: List<Item>,
+    stats: Stats,
+    issues: List<Fix>,
+    pad: PaddingValues,
+    onEdit: (Item) -> Unit,
+) {
+    val ctx = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    val sections = buildSections(items)
+    val doneCount = sections.first { it.first == DONE_SECTION }.second.size
+    val load = sections.filter { it.first == "Overdue" || it.first == "Today" }.sumOf { it.second.size } + doneCount
+    val total = sections.sumOf { it.second.size }
+
+    val listState = rememberLazyListState()
+    val reorderState = rememberReorderableLazyListState(listState) { from, to ->
+        val a = parseRowKey(from.key) ?: return@rememberReorderableLazyListState
+        val b = parseRowKey(to.key) ?: return@rememberReorderableLazyListState
+        // Only reorder within the same section.
+        if (a.first != b.first || a.first == DONE_SECTION) return@rememberReorderableLazyListState
+        val current = buildSections(Store.all(ctx)).firstOrNull { it.first == a.first }?.second
+            ?: return@rememberReorderableLazyListState
+        val ids = current.map { it.id }.toMutableList()
+        val fromIdx = ids.indexOf(a.second)
+        val toIdx = ids.indexOf(b.second)
+        if (fromIdx < 0 || toIdx < 0) return@rememberReorderableLazyListState
+        ids.add(toIdx, ids.removeAt(fromIdx))
+        Store.setOrder(ctx, ids)
+        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+    }
 
     LazyColumn(
+        state = listState,
         modifier = Modifier.fillMaxSize().padding(pad),
         contentPadding = PaddingValues(start = 16.dp, top = 20.dp, end = 16.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        item(key = "header") { Header(stats, doneToday.size, load) }
+        item(key = "header") { Header(stats, doneCount, load) }
         items(issues, key = { "fix_" + it.text }) { IssueCard(it) }
         item(key = "quickadd") { QuickAdd() }
-        section("Overdue", overdue, Cosmos.Pink, onEdit)
-        section("Today", todayList, Cosmos.Cyan, onEdit)
-        section("Anytime", anytime, Cosmos.Violet, onEdit)
-        section("Upcoming", upcoming, Cosmos.Muted, onEdit)
-        section("Done today", doneToday, Cosmos.Mint, onEdit)
-        if (overdue.isEmpty() && todayList.isEmpty() && anytime.isEmpty() && upcoming.isEmpty() && doneToday.isEmpty()) {
+        for ((title, list) in sections) {
+            if (list.isEmpty()) continue
+            item(key = "h_$title") {
+                Row(Modifier.padding(top = 14.dp, bottom = 2.dp, start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        title.uppercase(),
+                        color = sectionAccent(title),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 2.sp,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text("${list.size}", color = Cosmos.Muted, style = MaterialTheme.typography.labelMedium)
+                }
+            }
+            val draggable = title != DONE_SECTION
+            items(list, key = { rowKey(title, it.id) }) { item ->
+                ReorderableItem(reorderState, key = rowKey(title, item.id), enabled = draggable) { isDragging ->
+                    TaskRow(
+                        item = item,
+                        onEdit = onEdit,
+                        dragging = isDragging,
+                        handle = if (draggable) {
+                            {
+                                Icon(
+                                    Icons.Filled.Menu,
+                                    contentDescription = "Drag to reorder",
+                                    tint = Cosmos.Muted,
+                                    modifier = Modifier
+                                        .draggableHandle(
+                                            onDragStarted = {
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            },
+                                        )
+                                        .padding(start = 10.dp, top = 8.dp, bottom = 8.dp)
+                                        .size(20.dp),
+                                )
+                            }
+                        } else null,
+                    )
+                }
+            }
+        }
+        if (total == 0) {
             item(key = "empty") {
                 Text(
                     "Nothing here yet. Type a task above, or tap + for one with a reminder.",
@@ -317,24 +418,6 @@ private fun TasksScreen(
             }
         }
     }
-}
-
-private fun LazyListScope.section(title: String, list: List<Item>, accent: Color, onEdit: (Item) -> Unit) {
-    if (list.isEmpty()) return
-    item(key = "h_$title") {
-        Row(Modifier.padding(top = 14.dp, bottom = 2.dp, start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                title.uppercase(),
-                color = accent,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 2.sp,
-            )
-            Spacer(Modifier.width(8.dp))
-            Text("${list.size}", color = Cosmos.Muted, style = MaterialTheme.typography.labelMedium)
-        }
-    }
-    items(list, key = { "${title}_${it.id}" }) { TaskRow(it, onEdit) }
 }
 
 @Composable
@@ -457,13 +540,22 @@ private fun QuickAdd() {
 }
 
 @Composable
-private fun TaskRow(item: Item, onEdit: (Item) -> Unit) {
+private fun TaskRow(
+    item: Item,
+    onEdit: (Item) -> Unit,
+    dragging: Boolean = false,
+    handle: (@Composable () -> Unit)? = null,
+) {
     val ctx = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val isDone = item.doneNow
-    Glass(Modifier.fillMaxWidth(), onClick = { onEdit(item) }) {
+    Glass(
+        Modifier.fillMaxWidth().shadow(if (dragging) 12.dp else 0.dp, RoundedCornerShape(18.dp)),
+        onClick = { onEdit(item) },
+        highlight = dragging,
+    ) {
         Row(
-            Modifier.padding(start = 4.dp, end = 14.dp, top = 4.dp, bottom = 4.dp),
+            Modifier.padding(start = 4.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Checkbox(
@@ -495,6 +587,7 @@ private fun TaskRow(item: Item, onEdit: (Item) -> Unit) {
             }
             Spacer(Modifier.width(8.dp))
             PriorityStar(item.priority, dimmed = isDone)
+            handle?.invoke()
         }
     }
 }

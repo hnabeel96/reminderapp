@@ -49,6 +49,13 @@ object Store {
         saveAll(ctx, all(ctx).filter { it.id != id })
     }
 
+    /** Saves a new manual order for the given ids (one read, one write). */
+    @Synchronized
+    fun setOrder(ctx: Context, ids: List<Int>) {
+        val pos = ids.withIndex().associate { (i, id) -> id to i + 1 }
+        saveAll(ctx, all(ctx).map { item -> pos[item.id]?.let { item.copy(order = it) } ?: item })
+    }
+
     @Synchronized
     fun newId(ctx: Context): Int {
         val p = prefs(ctx)

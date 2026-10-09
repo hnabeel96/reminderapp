@@ -52,6 +52,8 @@ data class Item(
     /** When completed (for recurring: last completed occurrence). */
     val doneAt: Long = 0L,
     val createdAt: Long = 0L,
+    /** Manual position within its section (from drag and drop). 0 = not set. */
+    val order: Int = 0,
 ) {
     val recurring: Boolean get() = hasTime && repeat != Repeat.ONCE
     val armed: Boolean get() = hasTime && enabled && !done
@@ -74,6 +76,7 @@ data class Item(
         put("done", done)
         put("doneAt", doneAt)
         put("createdAt", createdAt)
+        put("order", order)
     }
 
     private fun stepDays(): Long = when (repeat) {
@@ -140,6 +143,7 @@ data class Item(
                 done = o.optBoolean("done", legacyDone),
                 doneAt = o.optLong("doneAt", if (legacyDone) o.optLong("timeMillis", 0L) else 0L),
                 createdAt = o.optLong("createdAt", 0L),
+                order = o.optInt("order", 0),
             )
         }
     }

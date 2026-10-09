@@ -167,13 +167,16 @@ fun Starfield(modifier: Modifier = Modifier) {
 fun Glass(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
+    highlight: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Card(
         modifier = if (onClick != null) modifier.clickable(onClick = onClick) else modifier,
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Cosmos.Glass),
-        border = BorderStroke(1.dp, Cosmos.GlassEdge),
+        colors = CardDefaults.cardColors(
+            containerColor = if (highlight) Cosmos.Panel else Cosmos.Glass,
+        ),
+        border = BorderStroke(1.dp, if (highlight) Cosmos.Cyan else Cosmos.GlassEdge),
         content = content,
     )
 }

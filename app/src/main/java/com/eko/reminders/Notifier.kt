@@ -91,6 +91,18 @@ object Notifier {
             b.setContentIntent(fs)
         }
 
+        // Lock screens that hide "sensitive" content show this public version instead,
+        // so make it carry the task name too.
+        b.setPublicVersion(
+            NotificationCompat.Builder(ctx, if (r.alarmStyle) CH_ALARM else CH_REMINDER)
+                .setSmallIcon(R.drawable.ic_notif)
+                .setColor(0xFF7DF9FF.toInt())
+                .setContentTitle(r.title)
+                .setContentText(text)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .build()
+        )
+
         val n = b.build()
         // Loop the sound until the user acts on it.
         if (r.alarmStyle) n.flags = n.flags or Notification.FLAG_INSISTENT

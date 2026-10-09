@@ -62,7 +62,7 @@ class AlarmReceiver : BroadcastReceiver() {
                 }
                 Store.upsert(ctx, updated)
                 if (r.recurring) Scheduler.schedule(ctx, updated)
-                Notifier.show(ctx, updated, "Due now")
+                Notifier.show(ctx, updated, "Due ${Dates.time(now)}")
                 if (r.nagMinutes > 0) Scheduler.scheduleRering(ctx, id, now + r.nagMinutes * 60_000L)
             }
 
